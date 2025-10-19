@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Main Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bitrix-messenger-app
+    environment:
+      # Database - подключение к локальному PostgreSQL
+      DB_URL: postgresql+asyncpg://user:password@host.docker.internal:5432/bitrix_messenger
+      DB_ECHO: "false"
+      
+      # Redis - подключение к локальному Redis
+      REDIS_URL: redis://host.docker.internal:6379/0
+      
+      # RabbitMQ - подключение к локальному RabbitMQ
+      RABBITMQ_URL: amqp://guest:guest@host.docker.internal:5672/
+      
+      # MinIO - подключение к локальному MinIO (если есть)
+      MINIO_ENDPOINT: host.docker.internal:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: bitrix-messenger
+      MINIO_SECURE: "false"
+      
+      # Security
+      SECURITY_SECRET_KEY: your-secret-key-change-in-production
+      SECURITY_ALGORITHM: HS256
+      
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: "true"
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      
+      # Monitoring
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # FastStream Router Worker
+  router:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bitrix-messenger-router
+    environment:
+      # Database
+      DB_URL: postgresql+asyncpg://user:password@host.docker.internal:5432/bitrix_messenger
+      
+      # RabbitMQ
+      RABBITMQ_URL: amqp://guest:guest@host.docker.internal:5672/
+      
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: "true"
+      
+      # Monitoring
+      LOG_LEVEL: INFO
+    volumes:
+      - .:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: poetry run python -m app.workers.router
