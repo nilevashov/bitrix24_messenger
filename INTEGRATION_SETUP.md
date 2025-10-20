@@ -43,11 +43,12 @@
 2. **Настройте webhook для Telegram:**
    ```bash
    cd /home/nilevashov/Desktop/apps/bitrix24-messenger
-   
+
    # Установите переменные окружения
    export TELEGRAM_BOT_TOKEN="your_bot_token_here"
-   export WEBHOOK_URL="https://yourdomain.com/api/v1/webhooks/channels/telegram"
-   
+   export TELEGRAM_WEBHOOK_SECRET="generated-channel-secret"
+   export WEBHOOK_URL="https://yourdomain.com/api/v1/webhooks/channels/telegram/${TELEGRAM_WEBHOOK_SECRET}"
+
    # Запустите скрипт настройки
    python scripts/setup-telegram-webhook.py
    ```
@@ -79,7 +80,9 @@
      - `ONIMOPENLINESESSIONFINISH` - Завершение сессии
      - `ONCRMLEADADD` - Новые лиды
      - `ONCRMCONTACTADD` - Новые контакты
-   - Укажите URL: `https://yourdomain.com/api/v1/webhooks/bitrix`
+  - Укажите URL: `https://yourdomain.com/api/v1/webhooks/bitrix`
+  - Добавьте события CRM: `ONCRMDEALADD`, `ONCRMDEALUPDATE`, `ONCRMDEALDELETE` — они позволяют коннектору привязывать сделки к контактам для последующего поиска chat_id.
+  - ⚠️ Коннектор **не изменяет** сделки в Bitrix24: события используются только для чтения идентификаторов контактов. Убедитесь, что у каждой сделки есть привязанный контакт — тогда старт переписки из карточки сделки корректно найдёт нужный чат.
 
 ### Шаг 3: Настройка канала в админке
 
@@ -97,9 +100,13 @@
    - Перейдите на вкладку "Channels"
    - Нажмите "Add Channel"
    - Выберите тип: "Telegram"
-   - Введите название канала
-   - Введите токен бота
-   - Нажмите "Add Channel"
+   - Заполните поля:
+     - **Name** — удобное имя канала
+     - **bot_token** — токен вашего бота
+     - **webhook_secret** — значение `TELEGRAM_WEBHOOK_SECRET` из шага настройки
+     - **openlines_connector** — `telegrambot`
+     - **openlines_line_id** — идентификатор линии OpenLines (например, `livechat`) 
+   - Сохраните канал
 
 ### Шаг 4: Настройка Bitrix24 в админке
 
@@ -152,9 +159,10 @@ WEBHOOK_URL=https://yourdomain.com/api/v1/webhooks
    - Создайте новую линию или используйте существующую
 
 2. **Настройте канал Telegram:**
-   - В настройках линии добавьте канал Telegram
-   - Укажите токен вашего бота
-   - Настройте правила маршрутизации
+   - В настройках линии добавьте канал Telegram (коннектор `telegrambot`)
+   - Укажите тот же токен бота, что и в конфигурации канала
+   - Скопируйте идентификатор линии и добавьте его как `openlines_line_id` в конфигурации канала
+   - Настройте правила маршрутизации операторов
 
 ## 🐛 Устранение неполадок
 
@@ -185,13 +193,14 @@ WEBHOOK_URL=https://yourdomain.com/api/v1/webhooks
 
 1. **Проверьте доступность webhook URL:**
    ```bash
-   curl -X POST https://yourdomain.com/api/v1/webhooks/channels/telegram \
+   curl -X POST https://yourdomain.com/api/v1/webhooks/channels/telegram/${TELEGRAM_WEBHOOK_SECRET} \
      -H "Content-Type: application/json" \
      -d '{"test": "message"}'
    ```
 
 2. **Проверьте базу данных:**
    - Убедитесь, что каналы созданы правильно
+   - Для стартов чатов из карточек сделок убедитесь, что у контакта уже есть история переписки: при первом сообщении клиента коннектор сохранит `chat_id`, а вебхуки сделок привяжут активные сделки к этому контакту. После этого менеджеры смогут открыть сделку, нажать "Начать чат" и система автоматически подставит нужный Telegram `chat_id`.
    - Проверьте, что токены сохраняются в поле `config`
 
 ## 📚 Дополнительные ресурсы

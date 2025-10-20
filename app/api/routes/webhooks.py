@@ -2,7 +2,7 @@
 
 import hashlib
 import hmac
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,16 +74,15 @@ async def bitrix_webhook(
         )
 
 
-@router.post("/channels/{channel_type}", response_model=WebhookResponse)
-async def channel_webhook(
+async def _process_channel_webhook_request(
     channel_type: str,
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession,
+    channel_token: Optional[str] = None,
 ) -> WebhookResponse:
-    """Receive webhooks from messenger channels (Telegram, WhatsApp, etc.)."""
     # Get raw body
     body = await request.body()
-    
+
     # Verify signature if configured
     signature = request.headers.get("X-Signature", "")
     webhook_secret = None
@@ -111,7 +110,11 @@ async def channel_webhook(
     # Process webhook
     webhook_service = WebhookService(db)
     try:
-        event_id = await webhook_service.process_channel_webhook(channel_type, payload)
+        event_id = await webhook_service.process_channel_webhook(
+            channel_type,
+            payload,
+            channel_token=channel_token,
+        )
         return WebhookResponse(
             success=True,
             message="Webhook processed successfully",
@@ -122,6 +125,27 @@ async def channel_webhook(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process webhook: {str(e)}"
         )
+
+
+@router.post("/channels/{channel_type}", response_model=WebhookResponse)
+async def channel_webhook(
+    channel_type: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> WebhookResponse:
+    """Receive webhooks from messenger channels without explicit token."""
+    return await _process_channel_webhook_request(channel_type, request, db)
+
+
+@router.post("/channels/{channel_type}/{channel_token}", response_model=WebhookResponse)
+async def channel_webhook_with_token(
+    channel_type: str,
+    channel_token: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> WebhookResponse:
+    """Receive webhooks from messenger channels using a per-channel secret."""
+    return await _process_channel_webhook_request(channel_type, request, db, channel_token)
 
 
 @router.post("/messages/send")

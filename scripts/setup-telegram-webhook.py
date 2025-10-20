@@ -26,17 +26,18 @@ async def setup_telegram_webhook():
         print("Error: Bot token is required")
         return False
     
-    # Get webhook URL (now tenant-agnostic)
+    # Get webhook URL (must include channel-specific secret)
     webhook_url = os.getenv("WEBHOOK_URL")
     if not webhook_url:
-        webhook_url = input("Enter your webhook URL (e.g., https://yourdomain.com/api/v1/webhooks/channels/telegram): ").strip()
-    
+        webhook_url = input(
+            "Enter your webhook URL (e.g., https://yourdomain.com/api/v1/webhooks/channels/telegram/<secret>): "
+        ).strip()
+
     if not webhook_url:
         print("Error: Webhook URL is required")
         return False
-    
-    print(f"ℹ️  Note: Webhook URL is now tenant-agnostic")
-    print(f"   The system will automatically determine the tenant from the webhook content")
+
+    print("ℹ️  Note: Use a unique secret per channel to avoid collisions between tenants")
     
     # Create Telegram adapter
     config = {"bot_token": bot_token}
