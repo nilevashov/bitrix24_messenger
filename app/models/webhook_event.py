@@ -1,7 +1,7 @@
 """Webhook event model for tracking incoming webhooks."""
 
 import enum
-from sqlalchemy import Column, String, DateTime, Enum, Index
+from sqlalchemy import Column, String, DateTime, Enum, Index, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from .base import Base, TenantMixin
@@ -23,6 +23,9 @@ class WebhookEvent(Base, TenantMixin):
     source = Column(Enum(WebhookSource), nullable=False)
     event_type = Column(String(100), nullable=False)
     payload = Column(JSONB, default=dict, nullable=False)
+
+    # Related channel (for channel webhooks)
+    channel_id = Column(UUID(as_uuid=True), ForeignKey("channel.id"), nullable=True)
     
     # Deduplication
     dedup_key = Column(String(255), nullable=False, unique=True)

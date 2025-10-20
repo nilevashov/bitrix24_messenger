@@ -166,20 +166,24 @@ class TelegramAdapter(BaseChannelAdapter):
             
             # Handle media
             if message_data.get("photo"):
-                photo = message_data["photo"][-1]  # Get highest resolution
-                message_content["media_url"] = f"https://api.telegram.org/file/bot{self.bot_token}/{photo['file_id']}"
+                photo = message_data["photo"][-1]
+                file_id = photo["file_id"]
+                file_url = await self.get_file_url(file_id) if self.bot else None
+                message_content["media_url"] = file_url
                 message_content["media_type"] = "photo"
                 message_content["media_meta"] = {
-                    "file_id": photo["file_id"],
+                    "file_id": file_id,
                     "width": photo.get("width"),
                     "height": photo.get("height")
                 }
             elif message_data.get("document"):
                 doc = message_data["document"]
-                message_content["media_url"] = f"https://api.telegram.org/file/bot{self.bot_token}/{doc['file_id']}"
+                file_id = doc["file_id"]
+                file_url = await self.get_file_url(file_id) if self.bot else None
+                message_content["media_url"] = file_url
                 message_content["media_type"] = "document"
                 message_content["media_meta"] = {
-                    "file_id": doc["file_id"],
+                    "file_id": file_id,
                     "file_name": doc.get("file_name"),
                     "mime_type": doc.get("mime_type"),
                     "file_size": doc.get("file_size")
@@ -188,7 +192,7 @@ class TelegramAdapter(BaseChannelAdapter):
             # Create normalized message
             normalized_message = self.normalize_message(payload)
             normalized_message.update({
-                "contact_info": contact_info,
+                "contact_info": {**contact_info, "user_id": contact_info.get("chat_id")},
                 "message_content": message_content,
                 "timestamp": message_data.get("date"),
                 "external_msg_id": str(message_data.get("message_id"))
